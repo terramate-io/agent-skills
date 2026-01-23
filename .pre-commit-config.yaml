@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: validate
+        name: Validate terraform-best-practices
+        entry: pnpm --dir packages/terraform-best-practices-build run validate
+        language: system
+        pass_filenames: false
+        files: ^skills/terraform-best-practices/
+
+      - id: build
+        name: Build terraform-best-practices
+        entry: pnpm --dir packages/terraform-best-practices-build run build
+        language: system
+        pass_filenames: false
+        files: ^skills/terraform-best-practices/
