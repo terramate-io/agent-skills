@@ -8,7 +8,7 @@ Skills follow the [Agent Skills format](https://github.com/vercel-labs/agent-ski
 
 ### terraform-best-practices
 
-Terraform and Infrastructure as Code (IaC) optimization guidelines from Terramate. Contains 40+ rules across 8 categories, prioritized by impact.
+Terraform and Infrastructure as Code (IaC) optimization guidelines from Terramate. Contains 37 rules across 10 categories, prioritized by impact.
 
 **Use when:**
 
@@ -20,14 +20,40 @@ Terraform and Infrastructure as Code (IaC) optimization guidelines from Terramat
 
 **Categories covered:**
 
+- Organization & Workflow (Critical)
 - State Management (Critical)
 - Security Best Practices (Critical)
 - Module Design (High)
 - Resource Organization (Medium-High)
 - Variable & Output Patterns (Medium)
+- Language Best Practices (Medium)
 - Provider Configuration (Medium)
 - Performance Optimization (Low-Medium)
 - Testing & Validation (Low)
+
+### terramate
+
+Terramate CLI, Cloud, and Catalyst best practices and usage guides. Contains 15+ rules across 8 categories for stack management, orchestration, code generation, and Cloud integration.
+
+**Use when:**
+
+- Creating and organizing Terramate stacks
+- Orchestrating commands across multiple stacks
+- Using code generation to keep configurations DRY
+- Integrating with Terramate Cloud for observability
+- Creating Catalyst components and bundles
+- Setting up CI/CD workflows with Terramate
+
+**Categories covered:**
+
+- CLI Fundamentals (Critical)
+- CLI Orchestration (High)
+- CLI Code Generation (High)
+- CLI Configuration (Medium-High)
+- Terramate Cloud (Medium-High)
+- Terramate Catalyst (Medium)
+- CI/CD Integration (Medium)
+- Advanced Patterns (Low-Medium)
 
 ## Installation
 
@@ -51,6 +77,18 @@ Help me optimize this AWS infrastructure
 
 ```
 Refactor this Terraform configuration to use modules
+```
+
+```
+Create a Terramate stack structure for my infrastructure
+```
+
+```
+Set up change detection for my Terramate stacks
+```
+
+```
+Generate provider configurations for all my stacks
 ```
 
 ## Skill Structure

@@ -9,7 +9,7 @@ metadata:
 
 # Terraform Best Practices
 
-Comprehensive optimization guide for Terraform and Infrastructure as Code, maintained by Terramate. Contains 36 rules across 10 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive optimization guide for Terraform and Infrastructure as Code, maintained by Terramate. Contains 37 rules across 10 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
@@ -58,9 +58,10 @@ Reference these guidelines when:
 - `security-credentials` - Use proper credential management (OIDC, Vault, IAM roles)
 - `security-iam-least-privilege` - Follow least privilege principle
 
-### 4. Module Design (HIGH) - 4 rules
+### 4. Module Design (HIGH) - 5 rules
 
 - `module-single-responsibility` - One module per logical component
+- `module-naming` - Use consistent naming conventions (terraform-<PROVIDER>-<NAME>)
 - `module-versioning` - Version all module references
 - `module-composition` - Compose modules like building blocks
 - `module-registry` - Use existing community/shared modules

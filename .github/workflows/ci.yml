@@ -1,19 +1,19 @@
-name: Terraform Best Practices CI
+name: Agent Skills CI
 
 on:
   push:
     branches: [main]
     paths:
-      - 'skills/terraform-best-practices/**'
-      - 'packages/terraform-best-practices-build/**'
+      - 'skills/**'
+      - 'packages/**-build/**'
   pull_request:
     branches: [main]
     paths:
-      - 'skills/terraform-best-practices/**'
-      - 'packages/terraform-best-practices-build/**'
+      - 'skills/**'
+      - 'packages/**-build/**'
 
 jobs:
-  validate:
+  validate-terraform-best-practices:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,6 +28,25 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: packages/terraform-best-practices-build/pnpm-lock.yaml
+      - run: pnpm install
+      - run: pnpm validate
+      - run: pnpm build
+
+  validate-terramate-best-practices:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/terramate-best-practices-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: packages/terramate-best-practices-build/pnpm-lock.yaml
       - run: pnpm install
       - run: pnpm validate
       - run: pnpm build
