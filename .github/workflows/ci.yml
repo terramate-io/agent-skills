@@ -5,19 +5,24 @@ on:
     branches: [main]
     paths:
       - 'skills/**'
-      - 'packages/**-build/**'
+      - 'packages/*-build/**'
+      - 'packages/shared-build-utils/**'
   pull_request:
     branches: [main]
     paths:
       - 'skills/**'
-      - 'packages/**-build/**'
+      - 'packages/*-build/**'
+      - 'packages/shared-build-utils/**'
 
 jobs:
-  validate-terraform-best-practices:
+  validate:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        skill: [terraform-best-practices, terramate-best-practices]
     defaults:
       run:
-        working-directory: packages/terraform-best-practices-build
+        working-directory: packages/${{ matrix.skill }}-build
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -27,26 +32,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: packages/terraform-best-practices-build/pnpm-lock.yaml
-      - run: pnpm install
-      - run: pnpm validate
-      - run: pnpm build
-
-  validate-terramate-best-practices:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/terramate-best-practices-build
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: packages/terramate-best-practices-build/pnpm-lock.yaml
+          cache-dependency-path: packages/${{ matrix.skill }}-build/pnpm-lock.yaml
       - run: pnpm install
       - run: pnpm validate
       - run: pnpm build

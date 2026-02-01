@@ -58,7 +58,62 @@ Terramate CLI, Cloud, and Catalyst best practices and usage guides. Contains 15+
 ## Installation
 
 ```bash
-npx add-skill terramate-io/agent-skills
+# Install all skills
+npx skills add terramate-io/agent-skills
+
+# Or install individual skills
+npx skills add terramate-io/agent-skills#terraform-best-practices
+npx skills add terramate-io/agent-skills#terramate-best-practices
+```
+
+## Publishing
+
+Skills are automatically discovered by [skills.sh](https://skills.sh/) from GitHub repositories. To publish new versions:
+
+### Initial Publishing
+
+1. **Validate your skills**:
+   ```bash
+   ./scripts/publish-skills.sh
+   ```
+
+2. **Ensure your repository is public** on GitHub
+
+3. **Create a GitHub release** (recommended):
+   - Go to your repository's Releases page
+   - Click "Create a new release"
+   - Tag a version (e.g., `v1.0.0`)
+   - The release workflow will automatically validate and build skills
+
+### Publishing New Versions
+
+When releasing a new version:
+
+1. **Create a GitHub release** with a version tag (e.g., `v1.1.0`)
+2. The `.github/workflows/release.yml` workflow will:
+   - Validate all SKILL.md files
+   - Build AGENTS.md files
+   - Verify frontmatter format
+   - Create a release summary
+
+3. **Users can install the new version**:
+   ```bash
+   npx skills add terramate-io/agent-skills@v1.1.0
+   ```
+
+### Skills Discovery
+
+Skills.sh automatically discovers skills from GitHub repositories. Your skills will appear on the [skills.sh directory](https://skills.sh/) based on:
+- Repository visibility (must be public)
+- Proper SKILL.md format with frontmatter
+- Usage telemetry from CLI installations
+
+### Manual Publishing Script
+
+Run the publishing script to validate and get instructions:
+
+```bash
+./scripts/publish-skills.sh
 ```
 
 ## Usage

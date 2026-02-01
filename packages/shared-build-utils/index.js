@@ -183,10 +183,7 @@ function validateRules(config) {
 }
 
 module.exports = {
-  getRuleFiles,
-  extractRuleContent,
   buildAgentsMd,
-  validateRuleFile,
   validateSkillFile,
   validateRules
 };
