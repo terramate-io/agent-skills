@@ -1,0 +1,99 @@
+name: Release Skills
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: |
+          cd packages/terraform-best-practices-build && pnpm install
+          cd ../terramate-best-practices-build && pnpm install
+      
+      - name: Validate terraform-best-practices
+        working-directory: packages/terraform-best-practices-build
+        run: |
+          pnpm validate
+          pnpm build
+      
+      - name: Validate terramate-best-practices
+        working-directory: packages/terramate-best-practices-build
+        run: |
+          pnpm validate
+          pnpm build
+      
+      - name: Get release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
+      
+      - name: Create release summary
+        run: |
+          cat << EOF > release-summary.md
+          # Skills Release ${{ steps.version.outputs.version }}
+          
+          ## Published Skills
+          
+          ### terraform-best-practices
+          - **Install**: \`npx skills add terramate-io/agent-skills#terraform-best-practices\`
+          - **Location**: \`skills/terraform-best-practices/\`
+          - **Rules**: $(find skills/terraform-best-practices/rules -name "*.md" | wc -l | tr -d ' ')
+          
+          ### terramate-best-practices
+          - **Install**: \`npx skills add terramate-io/agent-skills#terramate-best-practices\`
+          - **Location**: \`skills/terramate-best-practices/\`
+          - **Rules**: $(find skills/terramate-best-practices/rules -name "*.md" | wc -l | tr -d ' ')
+          
+          ## Installation
+          
+          Install all skills:
+          \`\`\`bash
+          npx skills add terramate-io/agent-skills
+          \`\`\`
+          
+          Or install individual skills:
+          \`\`\`bash
+          npx skills add terramate-io/agent-skills#terraform-best-practices
+          npx skills add terramate-io/agent-skills#terramate-best-practices
+          \`\`\`
+          
+          ## Repository
+          
+          https://github.com/terramate-io/agent-skills
+          EOF
+          cat release-summary.md
+      
+      - name: Upload release artifacts
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-summary
+          path: release-summary.md

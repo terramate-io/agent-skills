@@ -99,52 +99,329 @@ git push origin feature/add-redis-cache
 
 ### CI/CD Pipeline
 
+#### GitHub Actions - Comprehensive Workflow
+
 ```yaml
 # .github/workflows/terraform.yml
 name: Terraform
 
 on:
   pull_request:
-    paths: ['**.tf', '**.tfvars']
+    paths: ['**.tf', '**.tfvars', '.github/workflows/terraform.yml']
   push:
     branches: [main]
+    paths: ['**.tf', '**.tfvars']
+
+env:
+  TF_VERSION: 1.6.0
+  AWS_REGION: us-east-1
 
 jobs:
-  plan:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+        
+      - name: Terraform Init
+        run: terraform init -backend=false
+        
+      - name: Terraform Validate
+        run: terraform validate
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          soft_fail: false
+      
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform
+          soft_fail: false
+      
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan_type: 'config'
+          scan_ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  cost-estimation:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Terraform Init
+        run: terraform init -backend=false
+      
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        continue-on-error: true
+      
+      - name: Infracost Breakdown
+        uses: infracost/actions/comment@v3
+        with:
+          path: tfplan
+          terraform_plan_flags: -var-file=dev.tfvars
+          github_token: ${{ github.token }}
+          behavior: update
+
+  plan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [validate, security]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
       
       - name: Terraform Init
         run: terraform init
-        
+      
       - name: Terraform Plan
-        run: terraform plan -no-color
+        id: plan
+        run: terraform plan -no-color -out=tfplan
         continue-on-error: true
-        
+      
+      - name: Convert Plan to JSON
+        if: steps.plan.outcome == 'success'
+        run: terraform show -json tfplan > tfplan.json
+      
+      - name: Policy Check with Conftest
+        if: steps.plan.outcome == 'success'
+        uses: instrumenta/conftest-action@v0.1.0
+        with:
+          files: tfplan.json
+          policy: policy/
+          fail-on-warn: true
+      
       - name: Comment Plan on PR
+        if: steps.plan.outcome == 'success'
         uses: actions/github-script@v7
         with:
           script: |
-            // Post plan output as PR comment
+            const output = `#### Terraform Plan 📖
+            \`\`\`
+            ${process.env.PLAN}
+            \`\`\`
+            
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+          env:
+            PLAN: ${{ steps.plan.outputs.stdout }}
             
   apply:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production  # Requires approval
+    needs: [validate, security]
+    environment: 
+      name: production
+      url: https://app.terraform.io/app/${{ secrets.TF_ORG }}/workspaces/${{ secrets.TF_WORKSPACE }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+      
+      - name: Terraform Output
+        if: success()
+        run: terraform output -json > outputs.json
+      
+      - name: Upload Outputs
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: outputs.json
+```
+
+#### GitLab CI - Comprehensive Workflow
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - validate
+  - security
+  - plan
+  - apply
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${CI_COMMIT_REF_NAME}
+
+validate:
+  stage: validate
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+  script:
+    - terraform init -backend=false
+    - terraform validate
+    - terraform fmt -check -recursive
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+security:
+  stage: security
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+    - curl -sSL https://github.com/aquasecurity/tfsec/releases/download/v1.28.0/tfsec-linux-amd64 -o /usr/local/bin/tfsec
+    - chmod +x /usr/local/bin/tfsec
+  script:
+    - tfsec ${TF_ROOT}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+plan:
+  stage: plan
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - terraform plan -out=plan.cache
+    - terraform show -json plan.cache > plan.json
+  artifacts:
+    paths:
+      - ${TF_ROOT}/plan.cache
+      - ${TF_ROOT}/plan.json
+    reports:
+      terraform: ${TF_ROOT}/plan.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+apply:
+  stage: apply
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - terraform apply plan.cache
+  dependencies:
+    - plan
+  when: manual
+  only:
+    - main
+  environment:
+    name: production
+```
+
+#### Atlantis Integration
+
+```yaml
+# atlantis.yaml
+version: 3
+projects:
+  - name: infrastructure
+    dir: infrastructure
+    workflow: terraform
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars"]
+      enabled: true
+    apply_requirements: [approved, mergeable]
+    workflow: terraform
+
+workflows:
+  terraform:
+    plan:
+      steps:
+        - init
+        - plan:
+            extra_args: ["-var-file=dev.tfvars"]
+        - run: |
+            terraform show -json plan.json > plan.json
+            checkov -f plan.json
+    apply:
+      steps:
+        - init
+        - apply
+```
+
+#### Cost Estimation with Infracost
+
+```yaml
+# .github/workflows/infracost.yml
+name: Infracost
+
+on:
+  pull_request:
+    paths: ['**.tf']
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
       - uses: hashicorp/setup-terraform@v3
       
-      - name: Terraform Init
-        run: terraform init
-        
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+      
+      - name: Infracost Comment
+        uses: infracost/actions/comment@v3
+        with:
+          path: tfplan
+          github_token: ${{ github.token }}
+          behavior: update
+          show_project_name: true
 ```
 
 ### Environment Promotion

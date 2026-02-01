@@ -1440,6 +1440,238 @@ module "s3_bucket" {
 
 ---
 
+# module-naming
+
+**Priority:** HIGH  
+**Category:** Module Design
+
+## Why It Matters
+
+Consistent naming conventions make modules discoverable, indicate their purpose, and follow community standards. Well-named modules are easier to find, understand, and reuse.
+
+## Incorrect
+
+```hcl
+# Inconsistent naming patterns
+module "vpc" {
+  source = "./modules/vpc-module"
+}
+
+module "s3" {
+  source = "./modules/storage"
+}
+
+module "db" {
+  source = "./modules/database-module"
+}
+
+# Or worse - no clear pattern
+module "infra1" {
+  source = "./modules/module1"
+}
+```
+
+**Problem:** Inconsistent naming makes modules hard to discover and understand. No indication of provider or purpose.
+
+## Correct
+
+### Standard Naming Convention
+
+For reusable modules (especially public/registry modules):
+
+```
+terraform-<PROVIDER>-<NAME>
+```
+
+**Examples:**
+- `terraform-aws-vpc` - AWS VPC module
+- `terraform-aws-eks` - AWS EKS cluster module
+- `terraform-aws-rds` - AWS RDS database module
+- `terraform-google-network` - GCP network module
+- `terraform-azurerm-aks` - Azure AKS module
+
+### Directory Structure
+
+```
+modules/
+├── terraform-aws-vpc/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── versions.tf
+│   └── README.md
+├── terraform-aws-eks/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── README.md
+```
+
+### Module Usage
+
+```hcl
+# Registry module
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.2"
+  
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+}
+
+# Local module following convention
+module "vpc" {
+  source = "./modules/terraform-aws-vpc"
+  
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+}
+
+# Git module
+module "vpc" {
+  source = "git::https://github.com/myorg/terraform-aws-vpc.git?ref=v1.0.0"
+  
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+}
+```
+
+### Internal/Private Modules
+
+For internal modules, you can use shorter names but maintain consistency:
+
+```hcl
+# Option 1: Keep full convention
+module "vpc" {
+  source = "./modules/terraform-aws-vpc"
+}
+
+# Option 2: Shorter internal convention (if consistent)
+module "vpc" {
+  source = "./modules/aws-vpc"  # Still indicates provider
+}
+
+# Option 3: Organization-specific prefix
+module "vpc" {
+  source = "./modules/acme-aws-vpc"  # acme = company name
+}
+```
+
+### Naming Guidelines
+
+1. **Use kebab-case** - `terraform-aws-vpc`, not `terraform_aws_vpc` or `terraformAwsVpc`
+2. **Include provider** - Makes it clear which cloud provider
+3. **Be descriptive** - `terraform-aws-vpc` is better than `terraform-aws-networking`
+4. **Avoid abbreviations** - `terraform-aws-database` not `terraform-aws-db`
+5. **Use singular** - `terraform-aws-instance` not `terraform-aws-instances`
+
+### Module Variable Naming
+
+```hcl
+# Variables should match module purpose
+variable "vpc_name" {
+  type        = string
+  description = "Name of the VPC"
+}
+
+variable "vpc_cidr" {
+  type        = string
+  description = "CIDR block for the VPC"
+}
+
+# Avoid generic names
+variable "name" {  # Too generic
+  type = string
+}
+
+variable "cidr" {  # Too generic
+  type = string
+}
+```
+
+### Module Output Naming
+
+```hcl
+# Outputs should be descriptive and prefixed
+output "vpc_id" {
+  value       = aws_vpc.main.id
+  description = "ID of the VPC"
+}
+
+output "vpc_cidr_block" {
+  value       = aws_vpc.main.cidr_block
+  description = "CIDR block of the VPC"
+}
+
+output "public_subnet_ids" {
+  value       = aws_subnet.public[*].id
+  description = "List of public subnet IDs"
+}
+```
+
+### Terraform Resource Names
+
+Within modules, use consistent resource naming:
+
+```hcl
+# Use descriptive names
+resource "aws_vpc" "main" {
+  # Main VPC resource
+}
+
+resource "aws_subnet" "public" {
+  # Public subnet
+}
+
+resource "aws_subnet" "private" {
+  # Private subnet
+}
+
+# Avoid generic names
+resource "aws_vpc" "vpc" {  # Redundant
+resource "aws_subnet" "subnet1" {  # Non-descriptive
+```
+
+## Additional Context
+
+### Registry Module Naming
+
+When publishing to Terraform Registry:
+- Follow `terraform-<PROVIDER>-<NAME>` pattern
+- Check for naming conflicts
+- Use descriptive, searchable names
+- Consider SEO (what will users search for?)
+
+### Module Documentation
+
+Include naming in README:
+
+```markdown
+# terraform-aws-vpc
+
+Terraform module for creating AWS VPC infrastructure.
+
+## Usage
+
+```hcl
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.2"
+  
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+}
+```
+```
+
+## References
+
+- [Terraform Registry Module Naming](https://www.terraform.io/docs/registry/modules/publish.html)
+- [terraform-aws-modules Naming Convention](https://github.com/terraform-aws-modules)
+
+
+---
+
 # module-registry
 
 **Priority:** HIGH  
@@ -2379,52 +2611,329 @@ git push origin feature/add-redis-cache
 
 ### CI/CD Pipeline
 
+#### GitHub Actions - Comprehensive Workflow
+
 ```yaml
 # .github/workflows/terraform.yml
 name: Terraform
 
 on:
   pull_request:
-    paths: ['**.tf', '**.tfvars']
+    paths: ['**.tf', '**.tfvars', '.github/workflows/terraform.yml']
   push:
     branches: [main]
+    paths: ['**.tf', '**.tfvars']
+
+env:
+  TF_VERSION: 1.6.0
+  AWS_REGION: us-east-1
 
 jobs:
-  plan:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+        
+      - name: Terraform Init
+        run: terraform init -backend=false
+        
+      - name: Terraform Validate
+        run: terraform validate
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          soft_fail: false
+      
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform
+          soft_fail: false
+      
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan_type: 'config'
+          scan_ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  cost-estimation:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Terraform Init
+        run: terraform init -backend=false
+      
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        continue-on-error: true
+      
+      - name: Infracost Breakdown
+        uses: infracost/actions/comment@v3
+        with:
+          path: tfplan
+          terraform_plan_flags: -var-file=dev.tfvars
+          github_token: ${{ github.token }}
+          behavior: update
+
+  plan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [validate, security]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
       
       - name: Terraform Init
         run: terraform init
-        
+      
       - name: Terraform Plan
-        run: terraform plan -no-color
+        id: plan
+        run: terraform plan -no-color -out=tfplan
         continue-on-error: true
-        
+      
+      - name: Convert Plan to JSON
+        if: steps.plan.outcome == 'success'
+        run: terraform show -json tfplan > tfplan.json
+      
+      - name: Policy Check with Conftest
+        if: steps.plan.outcome == 'success'
+        uses: instrumenta/conftest-action@v0.1.0
+        with:
+          files: tfplan.json
+          policy: policy/
+          fail-on-warn: true
+      
       - name: Comment Plan on PR
+        if: steps.plan.outcome == 'success'
         uses: actions/github-script@v7
         with:
           script: |
-            // Post plan output as PR comment
+            const output = `#### Terraform Plan 📖
+            \`\`\`
+            ${process.env.PLAN}
+            \`\`\`
+            
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+          env:
+            PLAN: ${{ steps.plan.outputs.stdout }}
             
   apply:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production  # Requires approval
+    needs: [validate, security]
+    environment: 
+      name: production
+      url: https://app.terraform.io/app/${{ secrets.TF_ORG }}/workspaces/${{ secrets.TF_WORKSPACE }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+      
+      - name: Terraform Output
+        if: success()
+        run: terraform output -json > outputs.json
+      
+      - name: Upload Outputs
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: outputs.json
+```
+
+#### GitLab CI - Comprehensive Workflow
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - validate
+  - security
+  - plan
+  - apply
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${CI_COMMIT_REF_NAME}
+
+validate:
+  stage: validate
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+  script:
+    - terraform init -backend=false
+    - terraform validate
+    - terraform fmt -check -recursive
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+security:
+  stage: security
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+    - curl -sSL https://github.com/aquasecurity/tfsec/releases/download/v1.28.0/tfsec-linux-amd64 -o /usr/local/bin/tfsec
+    - chmod +x /usr/local/bin/tfsec
+  script:
+    - tfsec ${TF_ROOT}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+plan:
+  stage: plan
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - terraform plan -out=plan.cache
+    - terraform show -json plan.cache > plan.json
+  artifacts:
+    paths:
+      - ${TF_ROOT}/plan.cache
+      - ${TF_ROOT}/plan.json
+    reports:
+      terraform: ${TF_ROOT}/plan.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+apply:
+  stage: apply
+  image: hashicorp/terraform:1.6.0
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - terraform apply plan.cache
+  dependencies:
+    - plan
+  when: manual
+  only:
+    - main
+  environment:
+    name: production
+```
+
+#### Atlantis Integration
+
+```yaml
+# atlantis.yaml
+version: 3
+projects:
+  - name: infrastructure
+    dir: infrastructure
+    workflow: terraform
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars"]
+      enabled: true
+    apply_requirements: [approved, mergeable]
+    workflow: terraform
+
+workflows:
+  terraform:
+    plan:
+      steps:
+        - init
+        - plan:
+            extra_args: ["-var-file=dev.tfvars"]
+        - run: |
+            terraform show -json plan.json > plan.json
+            checkov -f plan.json
+    apply:
+      steps:
+        - init
+        - apply
+```
+
+#### Cost Estimation with Infracost
+
+```yaml
+# .github/workflows/infracost.yml
+name: Infracost
+
+on:
+  pull_request:
+    paths: ['**.tf']
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
       - uses: hashicorp/setup-terraform@v3
       
-      - name: Terraform Init
-        run: terraform init
-        
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+      
+      - name: Infracost Comment
+        uses: infracost/actions/comment@v3
+        with:
+          path: tfplan
+          github_token: ${{ github.token }}
+          behavior: update
+          show_project_name: true
 ```
 
 ### Environment Promotion
@@ -5992,6 +6501,90 @@ run "verify_tags" {
 terraform test
 ```
 
+## Testing Framework Decision Matrix
+
+Choose the right testing approach based on your needs:
+
+| Criteria | Native Tests (Terraform 1.6+) | Terratest (Go) |
+|----------|-------------------------------|----------------|
+| **Language** | HCL | Go |
+| **Setup complexity** | Low (built-in) | Medium (Go project setup) |
+| **Test speed** | Fast (no actual resources) | Slow (creates real resources) |
+| **Cost** | Free (plan-only) | Costs money (real resources) |
+| **Best for** | Plan validation, output checks | Integration testing, multi-step workflows |
+| **When to use** | Simple assertions, plan validation | Complex scenarios, cross-resource validation |
+
+### Decision Flow
+
+```
+Start: Need to test Terraform code?
+│
+├─ Can test with plan output? (no real resources needed)
+│  │
+│  ├─ Yes → Use Native Tests (terraform test)
+│  │   └─ Fast, free, built-in
+│  │
+│  └─ No → Need actual resources?
+│      │
+│      ├─ Yes → Use Terratest
+│      │   └─ Creates real resources, validates behavior
+│      │
+│      └─ No → Use Static Analysis
+│          └─ tflint, tfsec, checkov
+```
+
+### When to Use Native Tests
+
+```hcl
+# Use native tests for:
+# - Plan validation
+# - Output value checks
+# - Variable validation
+# - Resource attribute verification
+
+# tests/module.tftest.hcl
+run "verify_outputs" {
+  command = plan
+  
+  assert {
+    condition     = aws_vpc.main.cidr_block == "10.0.0.0/16"
+    error_message = "VPC CIDR must be 10.0.0.0/16"
+  }
+  
+  assert {
+    condition     = length(aws_subnet.public) == 3
+    error_message = "Must have 3 public subnets"
+  }
+}
+```
+
+### When to Use Terratest
+
+```go
+// Use Terratest for:
+// - Actual resource creation and validation
+// - Multi-step workflows
+// - Cross-resource integration
+// - End-to-end testing
+
+func TestVpcWithEksIntegration(t *testing.T) {
+    terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+        TerraformDir: "./fixtures/vpc-eks",
+    })
+    
+    defer terraform.Destroy(t, terraformOptions)
+    terraform.InitAndApply(t, terraformOptions)
+    
+    // Verify actual AWS resources exist
+    vpcId := terraform.Output(t, terraformOptions, "vpc_id")
+    aws.GetVpcById(t, vpcId, "us-east-1")
+    
+    // Test EKS cluster can access VPC
+    clusterName := terraform.Output(t, terraformOptions, "cluster_name")
+    aws.GetEksCluster(t, clusterName, "us-east-1")
+}
+```
+
 ## Level 4: Integration Tests
 
 ### Terratest (Go)
@@ -6129,6 +6722,122 @@ jobs:
           go test -v -timeout 30m
 ```
 
+## Quick Reference: Testing Decision Tree
+
+```
+┌─────────────────────────────────────┐
+│  What do you need to test?          │
+└─────────────────────────────────────┘
+              │
+              ├─ Syntax/Format?
+              │  └─→ terraform fmt, terraform validate
+              │
+              ├─ Security/Compliance?
+              │  └─→ tfsec, checkov, trivy
+              │
+              ├─ Plan Output Validation?
+              │  └─→ terraform test (native)
+              │
+              ├─ Actual Resource Behavior?
+              │  └─→ Terratest (Go)
+              │
+              └─ Policy Enforcement?
+                 └─→ conftest, OPA, Sentinel
+```
+
+## Testing Checklist
+
+Use this checklist when setting up testing for your Terraform code:
+
+- [ ] Format check (`terraform fmt -check`)
+- [ ] Syntax validation (`terraform validate`)
+- [ ] Static analysis (`tflint`)
+- [ ] Security scanning (`tfsec`, `checkov`)
+- [ ] Plan generation (`terraform plan`)
+- [ ] Policy checks (`conftest`, OPA)
+- [ ] Native tests (`terraform test`) - if Terraform 1.6+
+- [ ] Integration tests (Terratest) - if needed
+- [ ] CI/CD integration
+- [ ] Pre-commit hooks
+
+## Common Testing Patterns
+
+### Pattern 1: Simple Module (Native Tests)
+
+```hcl
+# modules/s3-bucket/tests/basic.tftest.hcl
+run "verify_bucket_created" {
+  command = plan
+  
+  assert {
+    condition     = aws_s3_bucket.main.bucket == var.bucket_name
+    error_message = "Bucket name mismatch"
+  }
+  
+  assert {
+    condition     = aws_s3_bucket_versioning.main.enabled == true
+    error_message = "Versioning must be enabled"
+  }
+}
+```
+
+### Pattern 2: Complex Integration (Terratest)
+
+```go
+// test/integration_test.go
+func TestVpcWithSubnets(t *testing.T) {
+    terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+        TerraformDir: "./fixtures/vpc",
+        Vars: map[string]interface{}{
+            "vpc_cidr": "10.0.0.0/16",
+        },
+    })
+    
+    defer terraform.Destroy(t, terraformOptions)
+    terraform.InitAndApply(t, terraformOptions)
+    
+    // Verify VPC exists
+    vpcId := terraform.Output(t, terraformOptions, "vpc_id")
+    vpc := aws.GetVpcById(t, vpcId, "us-east-1")
+    assert.Equal(t, "10.0.0.0/16", *vpc.CidrBlock)
+    
+    // Verify subnets
+    subnetIds := terraform.OutputList(t, terraformOptions, "subnet_ids")
+    assert.Len(t, subnetIds, 3)
+}
+```
+
+### Pattern 3: Multi-Environment Testing
+
+```hcl
+# Test with different variable sets
+run "dev_environment" {
+  command = plan
+  variables {
+    environment = "dev"
+    instance_count = 1
+  }
+  
+  assert {
+    condition     = aws_instance.web.count == 1
+    error_message = "Dev should have 1 instance"
+  }
+}
+
+run "prod_environment" {
+  command = plan
+  variables {
+    environment = "prod"
+    instance_count = 3
+  }
+  
+  assert {
+    condition     = aws_instance.web.count == 3
+    error_message = "Prod should have 3 instances"
+  }
+}
+```
+
 ## References
 
 - [Terraform Test](https://developer.hashicorp.com/terraform/language/tests)
@@ -6136,6 +6845,7 @@ jobs:
 - [tfsec](https://github.com/aquasecurity/tfsec)
 - [Checkov](https://www.checkov.io/)
 - [Conftest](https://www.conftest.dev/)
+- [Testing Best Practices](https://developer.hashicorp.com/terraform/language/tests/best-practices)
 
 
 ---

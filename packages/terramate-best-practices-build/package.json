@@ -1,14 +1,14 @@
 {
-  "name": "@terramate/terraform-best-practices-build",
+  "name": "@terramate/terramate-best-practices-build",
   "version": "0.0.1",
-  "description": "Build tools for terraform-best-practices skill",
+  "description": "Build tools for terramate-best-practices skill",
   "main": "index.js",
   "scripts": {
     "build": "node scripts/build.js",
     "validate": "node scripts/validate.js"
   },
   "keywords": [
-    "terraform",
+    "terramate",
     "iac",
     "best-practices",
     "agent-skills"
