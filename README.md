@@ -62,8 +62,8 @@ Terramate CLI, Cloud, and Catalyst best practices and usage guides. Contains 15+
 npx skills add terramate-io/agent-skills
 
 # Or install individual skills
-npx skills add terramate-io/agent-skills#terraform-best-practices
-npx skills add terramate-io/agent-skills#terramate-best-practices
+npx skills add terramate-io/agent-skills --skill terraform-best-practices
+npx skills add terramate-io/agent-skills --skill terramate-best-practices
 ```
 
 ## Publishing

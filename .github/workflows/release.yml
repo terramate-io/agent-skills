@@ -63,12 +63,12 @@ jobs:
           ## Published Skills
           
           ### terraform-best-practices
-          - **Install**: \`npx skills add terramate-io/agent-skills#terraform-best-practices\`
+          - **Install**: \`npx skills add terramate-io/agent-skills --skill terraform-best-practices\`
           - **Location**: \`skills/terraform-best-practices/\`
           - **Rules**: $(find skills/terraform-best-practices/rules -name "*.md" | wc -l | tr -d ' ')
           
           ### terramate-best-practices
-          - **Install**: \`npx skills add terramate-io/agent-skills#terramate-best-practices\`
+          - **Install**: \`npx skills add terramate-io/agent-skills --skill terramate-best-practices\`
           - **Location**: \`skills/terramate-best-practices/\`
           - **Rules**: $(find skills/terramate-best-practices/rules -name "*.md" | wc -l | tr -d ' ')
           
@@ -81,8 +81,8 @@ jobs:
           
           Or install individual skills:
           \`\`\`bash
-          npx skills add terramate-io/agent-skills#terraform-best-practices
-          npx skills add terramate-io/agent-skills#terramate-best-practices
+          npx skills add terramate-io/agent-skills --skill terraform-best-practices
+          npx skills add terramate-io/agent-skills --skill terramate-best-practices
           \`\`\`
           
           ## Repository
